@@ -11,6 +11,9 @@ import (
 	"bufio"
 	"bytes"
 	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -25,45 +28,46 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ThalesIgnite/crypto11"
 	"golang.org/x/crypto/ocsp"
 )
 
 type OCSPResponder struct {
-	IndexFile    string
-	RespKeyFile  string
-	RespCertFile string
-	CaCertFile   string
-	LogFile      string
-	LogToStdout  bool
-	Strict       bool
-	Port         int
-	Address      string
-	Ssl          bool
-	IndexEntries []IndexEntry
-	IndexModTime time.Time
-	CaCert       *x509.Certificate
-	RespCert     *x509.Certificate
-	NonceList    [][]byte
+	IndexFile        string
+	Pkcs11ConfigFile string
+	RespCertFile     string
+	CaCertFile       string
+	LogFile          string
+	LogToStdout      bool
+	Strict           bool
+	Port             int
+	Address          string
+	Ssl              bool
+	IndexEntries     []IndexEntry
+	IndexModTime     time.Time
+	CaCert           *x509.Certificate
+	RespCert         *x509.Certificate
+	NonceList        [][]byte
 }
 
 // I decided on these defaults based on what I was using
 func Responder() *OCSPResponder {
 	return &OCSPResponder{
-		IndexFile: "index.txt",
-		//RespKeyFile:  "responder.key",
-		RespCertFile: "responder.crt",
-		CaCertFile:   "ca.crt",
-		LogFile:      "gocsp-responder.log",
-		LogToStdout:  false,
-		Strict:       false,
-		Port:         8888,
-		Address:      "",
-		Ssl:          false,
-		IndexEntries: nil,
-		IndexModTime: time.Time{},
-		CaCert:       nil,
-		RespCert:     nil,
-		NonceList:    nil,
+		IndexFile:        "index.txt",
+		Pkcs11ConfigFile: "pkcs11-config.json",
+		RespCertFile:     "responder.crt",
+		CaCertFile:       "ca.crt",
+		LogFile:          "gocsp-responder.log",
+		LogToStdout:      false,
+		Strict:           false,
+		Port:             8888,
+		Address:          "",
+		Ssl:              false,
+		IndexEntries:     nil,
+		IndexModTime:     time.Time{},
+		CaCert:           nil,
+		RespCert:         nil,
+		NonceList:        nil,
 	}
 }
 
@@ -204,19 +208,19 @@ func parseCertFile(filename string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// parses a PEM encoded PKCS8 private key (RSA only)
-func parseKeyFile(filename string) (interface{}, error) {
-	kt, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(kt)
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	return key, nil
-}
+// // parses a PEM encoded PKCS8 private key (RSA only)
+// func parseKeyFile(filename string) (interface{}, error) {
+// 	kt, err := os.ReadFile(filename)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	block, _ := pem.Decode(kt)
+// 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return key, nil
+// }
 
 // takes a list of extensions and returns the nonce extension if it is present
 func checkForNonceExtension(exts []pkix.Extension) *pkix.Extension {
@@ -290,17 +294,44 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 			status = ocsp.Good
 		}
 	}
-
-	// parse key file
-	// perhaps I should zero this out after use
-	keyi, err := parseKeyFile(responder.RespKeyFile)
+	ctx, err := crypto11.ConfigureFromFile(responder.Pkcs11ConfigFile)
 	if err != nil {
-		return nil, err
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
 	}
-	key, ok := keyi.(crypto.Signer)
-	if !ok {
-		return nil, errors.New("could not make key a signer")
+	signers, err := ctx.FindAllKeyPairs()
+	if err != nil {
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
 	}
+	// test we can use to sign and verify
+	data := []byte("mary had a little lamb")
+	h := sha256.New()
+	_, err = h.Write(data)
+	if err != nil {
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	}
+	hash := h.Sum([]byte{})
+
+	sig, err := signers[0].Sign(rand.Reader, hash, crypto.SHA256)
+	if err != nil {
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	}
+	err = rsa.VerifyPKCS1v15(signers[0].Public().(*rsa.PublicKey), crypto.SHA256, hash, sig)
+	if err != nil {
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	}
+
+	/*
+		// parse key file
+		// perhaps I should zero this out after use
+		keyi, err := parseKeyFile(responder.RespKeyFile)
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyi.(crypto.Signer)
+		if !ok {
+			return nil, errors.New("could not make key a signer")
+		}
+	*/
 
 	// check for nonce extension
 	// TODO
@@ -341,7 +372,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	}
 
 	// make a response to return
-	resp, err := ocsp.CreateResponse(responder.CaCert, responder.RespCert, rtemplate, key)
+	resp, err := ocsp.CreateResponse(responder.CaCert, responder.RespCert, rtemplate, signers[0])
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +414,7 @@ func (responder *OCSPResponder) Serve() error {
 	log.Printf("GOCSP-Responder starting on %s with SSL:%t", listenOn, responder.Ssl)
 
 	if responder.Ssl {
-		http.ListenAndServeTLS(listenOn, responder.RespCertFile, responder.RespKeyFile, nil)
+		http.ListenAndServeTLS(listenOn, responder.RespCertFile, "TODO", nil)
 	} else {
 		http.ListenAndServe(listenOn, nil)
 	}

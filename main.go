@@ -14,7 +14,7 @@ func main() {
 	flag.StringVar(&resp.IndexFile, "index", resp.IndexFile, "CA index filename")
 	flag.StringVar(&resp.CaCertFile, "cacert", resp.CaCertFile, "CA certificate filename")
 	flag.StringVar(&resp.RespCertFile, "rcert", resp.RespCertFile, "responder certificate filename")
-	flag.StringVar(&resp.RespKeyFile, "rkey", resp.RespKeyFile, "responder key filename")
+	flag.StringVar(&resp.Pkcs11ConfigFile, "p11conf", resp.Pkcs11ConfigFile, "pkcs11 config filename")
 	flag.StringVar(&resp.LogFile, "logfile", resp.LogFile, "file to log to")
 	flag.StringVar(&resp.Address, "bind", resp.Address, "bind address")
 	flag.IntVar(&resp.Port, "port", resp.Port, "listening port")
