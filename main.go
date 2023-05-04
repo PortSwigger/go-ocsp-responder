@@ -5,7 +5,8 @@ package main
 
 import (
 	"flag"
-	"gocsp-responder/responder"
+
+	"portswigger.net/GOCSP-responder/responder"
 )
 
 func main() {

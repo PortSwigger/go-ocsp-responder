@@ -1,3 +1,5 @@
+// Dusted off and attempted to be Modernised by SimonB @ PortSwigger.
+//
 // Copyright 2016 SMFS Inc. DBA GRIMM. All rights reserved.
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE file.
@@ -16,14 +18,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"gocsp-responder/crypto/ocsp"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ocsp"
 )
 
 type OCSPResponder struct {
@@ -47,11 +49,11 @@ type OCSPResponder struct {
 // I decided on these defaults based on what I was using
 func Responder() *OCSPResponder {
 	return &OCSPResponder{
-		IndexFile:    "index.txt",
-		RespKeyFile:  "responder.key",
+		IndexFile: "index.txt",
+		//RespKeyFile:  "responder.key",
 		RespCertFile: "responder.crt",
 		CaCertFile:   "ca.crt",
-		LogFile:      "/var/log/gocsp-responder.log",
+		LogFile:      "gocsp-responder.log",
 		LogToStdout:  false,
 		Strict:       false,
 		Port:         8888,
@@ -66,10 +68,10 @@ func Responder() *OCSPResponder {
 }
 
 // Creates an OCSP http handler and returns it
-func (self *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *http.Request) {
+func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Print(fmt.Sprintf("Got %s request from %s", r.Method, r.RemoteAddr))
-		if self.Strict && r.Header.Get("Content-Type") != "application/ocsp-request" {
+		log.Printf("Got %s request from %s", r.Method, r.RemoteAddr)
+		if responder.Strict && r.Header.Get("Content-Type") != "application/ocsp-request" {
 			log.Println("Strict mode requires correct Content-Type header")
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -97,7 +99,7 @@ func (self *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *http.Req
 
 		// parse request, verify, create response
 		w.Header().Set("Content-Type", "application/ocsp-response")
-		resp, err := self.verify(b.Bytes())
+		resp, err := responder.verify(b.Bytes())
 		if err != nil {
 			log.Print(err)
 			// technically we should return an ocsp error response. but this is probably fine
@@ -126,16 +128,16 @@ type IndexEntry struct {
 }
 
 // function to parse the index file
-func (self *OCSPResponder) parseIndex() error {
+func (responder *OCSPResponder) parseIndex() error {
 	var t string = "060102150405Z"
-	finfo, err := os.Stat(self.IndexFile)
+	finfo, err := os.Stat(responder.IndexFile)
 	if err == nil {
 		// if the file modtime has changed, then reload the index file
-		if finfo.ModTime().After(self.IndexModTime) {
+		if finfo.ModTime().After(responder.IndexModTime) {
 			log.Print("Index has changed. Updating")
-			self.IndexModTime = finfo.ModTime()
+			responder.IndexModTime = finfo.ModTime()
 			// clear index entries
-			self.IndexEntries = self.IndexEntries[:0]
+			responder.IndexEntries = responder.IndexEntries[:0]
 		} else {
 			// the index has not changed. just return
 			return nil
@@ -145,7 +147,7 @@ func (self *OCSPResponder) parseIndex() error {
 	}
 
 	// open and parse the index file
-	if file, err := os.Open(self.IndexFile); err == nil {
+	if file, err := os.Open(responder.IndexFile); err == nil {
 		defer file.Close()
 		s := bufio.NewScanner(file)
 		for s.Scan() {
@@ -165,7 +167,7 @@ func (self *OCSPResponder) parseIndex() error {
 				// invalid status or bad line. just carry on
 				continue
 			}
-			self.IndexEntries = append(self.IndexEntries, ie)
+			responder.IndexEntries = append(responder.IndexEntries, ie)
 		}
 	} else {
 		return err
@@ -175,22 +177,22 @@ func (self *OCSPResponder) parseIndex() error {
 
 // updates the index if necessary and then searches for the given index in the
 // index list
-func (self *OCSPResponder) getIndexEntry(s *big.Int) (*IndexEntry, error) {
-	log.Println(fmt.Sprintf("Looking for serial 0x%x", s))
-	if err := self.parseIndex(); err != nil {
+func (responder *OCSPResponder) getIndexEntry(s *big.Int) (*IndexEntry, error) {
+	log.Printf("Looking for serial 0x%x", s)
+	if err := responder.parseIndex(); err != nil {
 		return nil, err
 	}
-	for _, ent := range self.IndexEntries {
+	for _, ent := range responder.IndexEntries {
 		if ent.Serial.Cmp(s) == 0 {
 			return &ent, nil
 		}
 	}
-	return nil, errors.New(fmt.Sprintf("Serial 0x%x not found", s))
+	return nil, fmt.Errorf("serial 0x%x not found", s)
 }
 
 // parses a pem encoded x509 certificate
 func parseCertFile(filename string) (*x509.Certificate, error) {
-	ct, err := ioutil.ReadFile(filename)
+	ct, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +206,7 @@ func parseCertFile(filename string) (*x509.Certificate, error) {
 
 // parses a PEM encoded PKCS8 private key (RSA only)
 func parseKeyFile(filename string) (interface{}, error) {
-	kt, err := ioutil.ReadFile(filename)
+	kt, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -228,52 +230,57 @@ func checkForNonceExtension(exts []pkix.Extension) *pkix.Extension {
 	return nil
 }
 
-func (self *OCSPResponder) verifyIssuer(req *ocsp.Request) error {
+func (responder *OCSPResponder) verifyIssuer(req *ocsp.Request) error {
 	h := req.HashAlgorithm.New()
-	h.Write(self.CaCert.RawSubject)
-	if bytes.Compare(h.Sum(nil), req.IssuerNameHash) != 0 {
-		return errors.New("Issuer name does not match")
+	h.Write(responder.CaCert.RawSubject)
+	if !bytes.Equal(h.Sum(nil), req.IssuerNameHash) {
+		//if bytes.Compare(h.Sum(nil), req.IssuerNameHash) != 0 {
+		return errors.New("issuer name does not match")
 	}
 	h.Reset()
 	var publicKeyInfo struct {
 		Algorithm pkix.AlgorithmIdentifier
 		PublicKey asn1.BitString
 	}
-	if _, err := asn1.Unmarshal(self.CaCert.RawSubjectPublicKeyInfo, &publicKeyInfo); err != nil {
+	if _, err := asn1.Unmarshal(responder.CaCert.RawSubjectPublicKeyInfo, &publicKeyInfo); err != nil {
 		return err
 	}
 	h.Write(publicKeyInfo.PublicKey.RightAlign())
-	if bytes.Compare(h.Sum(nil), req.IssuerKeyHash) != 0 {
-		return errors.New("Issuer key hash does not match")
+	if !bytes.Equal(h.Sum(nil), req.IssuerKeyHash) {
+		//if bytes.Compare(h.Sum(nil), req.IssuerKeyHash) != 0 {
+		return errors.New("issuer key hash does not match")
 	}
 	return nil
 }
 
 // takes the der encoded ocsp request, verifies it, and creates a response
-func (self *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
+func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	var status int
 	var revokedAt time.Time
 
 	// parse the request
-	req, exts, err := ocsp.ParseRequest(rawreq)
+	// TODO - we're using the upstream ocsp package
+	req, err := ocsp.ParseRequest(rawreq)
+	//req, exts, err := ocsp.ParseRequest(rawreq)
+
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
 	//make sure the request is valid
-	if err := self.verifyIssuer(req); err != nil {
+	if err := responder.verifyIssuer(req); err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
 	// get the index entry, if it exists
-	ent, err := self.getIndexEntry(req.SerialNumber)
+	ent, err := responder.getIndexEntry(req.SerialNumber)
 	if err != nil {
 		log.Println(err)
 		status = ocsp.Unknown
 	} else {
-		log.Print(fmt.Sprintf("Found entry %+v", ent))
+		log.Printf("Found entry %+v", ent)
 		if ent.Status == StatusRevoked {
 			log.Print("This certificate is revoked")
 			status = ocsp.Revoked
@@ -286,24 +293,27 @@ func (self *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 
 	// parse key file
 	// perhaps I should zero this out after use
-	keyi, err := parseKeyFile(self.RespKeyFile)
+	keyi, err := parseKeyFile(responder.RespKeyFile)
 	if err != nil {
 		return nil, err
 	}
 	key, ok := keyi.(crypto.Signer)
 	if !ok {
-		return nil, errors.New("Could not make key a signer")
+		return nil, errors.New("could not make key a signer")
 	}
 
 	// check for nonce extension
-	var responseExtensions []pkix.Extension
-	nonce := checkForNonceExtension(exts)
+	// TODO
+	// var responseExtensions []pkix.Extension
+	// TODO
+	//nonce := checkForNonceExtension(exts)
 
 	// check if the nonce has been used before
-	if self.NonceList == nil {
-		self.NonceList = make([][]byte, 10)
+	if responder.NonceList == nil {
+		responder.NonceList = make([][]byte, 10)
 	}
 
+	/* TODO
 	if nonce != nil {
 		for _, n := range self.NonceList {
 			if bytes.Compare(n, nonce.Value) == 0 {
@@ -314,23 +324,24 @@ func (self *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		self.NonceList = append(self.NonceList, nonce.Value)
 		responseExtensions = append(responseExtensions, *nonce)
 	}
+	*/
 
 	// construct response template
 	rtemplate := ocsp.Response{
 		Status:           status,
 		SerialNumber:     req.SerialNumber,
-		Certificate:      self.RespCert,
+		Certificate:      responder.RespCert,
 		RevocationReason: ocsp.Unspecified,
 		IssuerHash:       req.HashAlgorithm,
 		RevokedAt:        revokedAt,
 		ThisUpdate:       time.Now().AddDate(0, 0, -1).UTC(),
 		//adding 1 day after the current date. This ocsp library sets the default date to epoch which makes ocsp clients freak out.
 		NextUpdate: time.Now().AddDate(0, 0, 1).UTC(),
-		Extensions: exts,
+		// Extensions: exts, // TODO
 	}
 
 	// make a response to return
-	resp, err := ocsp.CreateResponse(self.CaCert, self.RespCert, rtemplate, key)
+	resp, err := ocsp.CreateResponse(responder.CaCert, responder.RespCert, rtemplate, key)
 	if err != nil {
 		return nil, err
 	}
@@ -339,40 +350,40 @@ func (self *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 }
 
 // setup an ocsp server instance with configured values
-func (self *OCSPResponder) Serve() error {
+func (responder *OCSPResponder) Serve() error {
 	// setup logging
-	if !self.LogToStdout {
-		lf, err := os.OpenFile(self.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0664)
+	if !responder.LogToStdout {
+		lf, err := os.OpenFile(responder.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0664)
 		if err != nil {
-			log.Fatal("Could not open log file " + self.LogFile)
+			log.Fatal("Could not open log file " + responder.LogFile)
 		}
 		defer lf.Close()
 		log.SetOutput(lf)
 	}
 
 	//the certs should not change, so lets keep them in memory
-	cacert, err := parseCertFile(self.CaCertFile)
+	cacert, err := parseCertFile(responder.CaCertFile)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
-	respcert, err := parseCertFile(self.RespCertFile)
+	respcert, err := parseCertFile(responder.RespCertFile)
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
 
-	self.CaCert = cacert
-	self.RespCert = respcert
+	responder.CaCert = cacert
+	responder.RespCert = respcert
 
 	// get handler and serve
-	handler := self.makeHandler()
+	handler := responder.makeHandler()
 	http.HandleFunc("/", handler)
-	listenOn := fmt.Sprintf("%s:%d", self.Address, self.Port)
-	log.Println(fmt.Sprintf("GOCSP-Responder starting on %s with SSL:%t", listenOn, self.Ssl))
+	listenOn := fmt.Sprintf("%s:%d", responder.Address, responder.Port)
+	log.Printf("GOCSP-Responder starting on %s with SSL:%t", listenOn, responder.Ssl)
 
-	if self.Ssl {
-		http.ListenAndServeTLS(listenOn, self.RespCertFile, self.RespKeyFile, nil)
+	if responder.Ssl {
+		http.ListenAndServeTLS(listenOn, responder.RespCertFile, responder.RespKeyFile, nil)
 	} else {
 		http.ListenAndServe(listenOn, nil)
 	}
