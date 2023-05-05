@@ -1,4 +1,4 @@
-module portswigger.net/GOCSP-responder
+module github.com/PortSwigger/go-ocsp-responder
 
 go 1.20
 
@@ -6,6 +6,8 @@ require (
 	github.com/ThalesIgnite/crypto11 v1.2.5
 	golang.org/x/crypto v0.8.0
 )
+
+require github.com/jmespath/go-jmespath v0.4.0 // indirect
 
 require (
 	github.com/aws/aws-sdk-go v1.44.257

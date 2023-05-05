@@ -37,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 	"golang.org/x/crypto/ocsp"
 )
@@ -161,55 +162,6 @@ type x509Record struct {
 }
 
 /*
-// function to parse the index file
-func (responder *OCSPResponder) parseIndex() error {
-	var t string = "060102150405Z"
-	finfo, err := os.Stat(responder.IndexFile)
-	if err == nil {
-		// if the file modtime has changed, then reload the index file
-		if finfo.ModTime().After(responder.IndexModTime) {
-			log.Print("Index has changed. Updating")
-			responder.IndexModTime = finfo.ModTime()
-			// clear index entries
-			responder.IndexEntries = responder.IndexEntries[:0]
-		} else {
-			// the index has not changed. just return
-			return nil
-		}
-	} else {
-		return err
-	}
-
-	// open and parse the index file
-	if file, err := os.Open(responder.IndexFile); err == nil {
-		defer file.Close()
-		s := bufio.NewScanner(file)
-		for s.Scan() {
-			var ie IndexEntry
-			ln := strings.Fields(s.Text())
-			ie.Status = []byte(ln[0])[0]
-			ie.IssueTime, _ = time.Parse(t, ln[1])
-			if ie.Status == StatusValid {
-				ie.Serial, _ = new(big.Int).SetString(ln[2], 16)
-				ie.DistinguishedName = ln[4]
-				ie.RevocationTime = time.Time{} //doesn't matter
-			} else if ie.Status == StatusRevoked {
-				ie.Serial, _ = new(big.Int).SetString(ln[3], 16)
-				ie.DistinguishedName = ln[5]
-				ie.RevocationTime, _ = time.Parse(t, ln[2])
-			} else {
-				// invalid status or bad line. just carry on
-				continue
-			}
-			responder.IndexEntries = append(responder.IndexEntries, ie)
-		}
-	} else {
-		return err
-	}
-	return nil
-}
-*/
-/*
 // updates the index if necessary and then searches for the given index in the
 // index list
 func (responder *OCSPResponder) getIndexEntry(s *big.Int) (*IndexEntry, error) {
@@ -238,20 +190,6 @@ func parseCertFile(filename string) (*x509.Certificate, error) {
 	}
 	return cert, nil
 }
-
-// // parses a PEM encoded PKCS8 private key (RSA only)
-// func parseKeyFile(filename string) (interface{}, error) {
-// 	kt, err := os.ReadFile(filename)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	block, _ := pem.Decode(kt)
-// 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return key, nil
-// }
 
 // takes a list of extensions and returns the nonce extension if it is present
 func checkForNonceExtension(exts []pkix.Extension) *pkix.Extension {
@@ -298,17 +236,18 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 	svc := dynamodb.New(sess)
 
 	// Ref: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.FilterExpression
-	filt := expression.Name("Revoked").Equal(expression.Value(false))
+	filt := expression.Name("SerialNumber").Equal(expression.Value(sn.String()))
 
 	// Ref: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ProjectionExpressions.html
-	proj := expression.NamesList(
-		expression.Name("RevocationTime"),
-		expression.Name("AccessKey"),
-		expression.Name("Username"),
-		expression.Name("Environment"),
-	)
+	// proj := expression.NamesList(
+	// 	expression.Name("Status"),
+	// 	expression.Name("Subject"),
+	// 	expression.Name("NotAfter"),
+	// 	expression.Name("Environment"),
+	// )
 
-	expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
+	//expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
+	expr, err := expression.NewBuilder().WithFilter(filt).Build()
 	if err != nil {
 		log.Fatalf("FATAL: Got error building expression: %s", err)
 	}
@@ -317,9 +256,9 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 	params := &dynamodb.ScanInput{
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
-		FilterExpression:          expr.Filter(),
 		ProjectionExpression:      expr.Projection(),
 		TableName:                 aws.String(tableName),
+		//FilterExpression:          expr.Filter(),
 	}
 
 	// Make the DynamoDB Query initial API call
@@ -328,6 +267,12 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 		log.Fatalf("FATAL: Query API call failed: %s", err)
 	}
 	if len(output.Items) > 0 {
+		log.Printf("%#v", output.Items)
+		// we should only ever have one record here unless we're cryptographically compromised.
+		for _, i := range output.Items {
+			err = dynamodbattribute.UnmarshalMap(i, &record)
+			return record, err
+		}
 	}
 	return record, err
 }
