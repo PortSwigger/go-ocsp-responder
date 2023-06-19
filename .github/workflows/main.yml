@@ -25,7 +25,7 @@ jobs:
         go-version: 'stable'
 
     - name: Build OCSP Server
-      run: go build -v
+      run: cd go-ocsp-responder && go build -v
 
     - name: Install aws-sdk-cpp
       id: vcpkg
