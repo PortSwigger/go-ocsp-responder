@@ -1,0 +1,94 @@
+---
+
+# This template is to be executed in the account which will access the dynamodb, using the 
+# user which is created below.
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: |
+  This cfn-template creates the OCSP Responder required policy (and user for testing).
+
+Parameters:
+  BuTag:
+    Type: String
+    Description: The BU tag used for cost allocation
+    Default: IT
+
+  EnvironmentTag:
+    Type: String
+    Description: The Environment tag used for cost allocation
+    Default: Production
+
+  AccessRoleName:
+    Type: String
+    Description: SEE COMMENTS IN TEMPLATE - populate with output value for OcspAccessRole after other template execution!
+    Default: arn:aws:iam::658786808637:role/ocsp-db-access-policy-OcspDynamoDbAccessRole-1SN9XMZJ88PFY
+
+  # BuildBucketName:
+  #   Type: String
+  #   Description:  Passed in from the pipeline for the originating bucket
+
+  # BuildObjectKey:
+  #   Type: String
+  #   Description: Passed in from the pipeline as the location of the object in S3
+
+
+Resources:
+
+  OcspPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: OCSPAccessPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+            - 'sts:AssumeRole'
+            Effect: Allow
+            Resource: !Ref AccessRoleName
+            # Resource: '*'  # change this once you know the rolename!
+      Users: 
+        - !Ref OcspUser
+
+  OcspUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: BuTag
+          Value: !Ref BuTag
+
+# uncomment once you have resolved the circular dependencies!  
+  OcspLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Allows lambda access to CertSquirt DynamoDB table
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal: 
+              Service: 
+                - lambda.amazonaws.com
+      Path: /
+      ManagedPolicyArns:
+        - !Ref OcspPolicy
+
+
+Outputs:
+  OcspUser:
+    Value: !Ref OcspUser
+    Export:
+      Name: OcspUser
+  OcspUserArn:
+    Value: !GetAtt OcspUser.Arn
+    Export:
+      Name: OcspUserArn
+  OcspPolicy:
+    Value: !Ref OcspPolicy
+    Export:
+      Name: OcspPolicy
+

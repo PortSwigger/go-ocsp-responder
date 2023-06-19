@@ -1,5 +1,5 @@
-// Dusted off and attempted to be Modernised by SimonB @ PortSwigger.
-//
+// Dusted off and attempted to be modernised by SimonB @ PortSwigger.
+
 // Copyright 2016 SMFS Inc. DBA GRIMM. All rights reserved.
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE file.
@@ -52,6 +52,7 @@ type OCSPResponder struct {
 	Strict           bool
 	Port             int
 	Address          string
+	// TODO ?
 	//IndexEntries     []IndexEntry
 	IndexModTime time.Time
 	CaCert       *x509.Certificate
@@ -59,7 +60,6 @@ type OCSPResponder struct {
 	NonceList    [][]byte
 }
 
-// I decided on these defaults based on what I was using
 func Responder() *OCSPResponder {
 	return &OCSPResponder{
 		IndexFile:        "index.txt",
@@ -233,6 +233,9 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(awsregion)},
 	)
+	if err != nil {
+		return record, err
+	}
 	svc := dynamodb.New(sess)
 
 	// Ref: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.FilterExpression
@@ -249,7 +252,7 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 	//expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
 	expr, err := expression.NewBuilder().WithFilter(filt).Build()
 	if err != nil {
-		log.Fatalf("FATAL: Got error building expression: %s", err)
+		return record, err
 	}
 
 	// Build the query input parameters
@@ -264,7 +267,7 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 	// Make the DynamoDB Query initial API call
 	output, err := svc.Scan(params)
 	if err != nil {
-		log.Fatalf("FATAL: Query API call failed: %s", err)
+		return record, err
 	}
 	if len(output.Items) > 0 {
 		log.Printf("%#v", output.Items)
@@ -282,7 +285,8 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	var status int
 	var revokedAt time.Time
 
-	// parse the request
+	// the original solution called 'ParseRequest' which returned 3 values, see here:
+	// https://github.com/grimm-co/GOCSP-responder/blob/master/src/gocsp-responder/crypto/ocsp/ocsp.go#L411
 	// TODO - we're using the upstream ocsp package
 	req, err := ocsp.ParseRequest(rawreq)
 	//req, exts, err := ocsp.ParseRequest(rawreq)
@@ -314,6 +318,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 			status = ocsp.Good
 		}
 	}
+	// I feel the following are serious enough to be fatal errors...
 	ctx, err := crypto11.ConfigureFromFile(responder.Pkcs11ConfigFile)
 	if err != nil {
 		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
@@ -340,19 +345,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
 	}
 
-	/*
-		// parse key file
-		// perhaps I should zero this out after use
-		keyi, err := parseKeyFile(responder.RespKeyFile)
-		if err != nil {
-			return nil, err
-		}
-		key, ok := keyi.(crypto.Signer)
-		if !ok {
-			return nil, errors.New("could not make key a signer")
-		}
-	*/
-
+	//
 	// check for nonce extension
 	// TODO
 	// var responseExtensions []pkix.Extension
@@ -406,7 +399,7 @@ func (responder *OCSPResponder) Serve() error {
 	if !responder.LogToStdout {
 		lf, err := os.OpenFile(responder.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0664)
 		if err != nil {
-			log.Fatal("Could not open log file " + responder.LogFile)
+			log.Fatalf("Could not open log file %v (%v)", responder.LogFile, err)
 		}
 		defer lf.Close()
 		log.SetOutput(lf)
@@ -416,12 +409,10 @@ func (responder *OCSPResponder) Serve() error {
 	cacert, err := parseCertFile(responder.CaCertFile)
 	if err != nil {
 		log.Fatal(err)
-		return err
 	}
 	respcert, err := parseCertFile(responder.RespCertFile)
 	if err != nil {
 		log.Fatal(err)
-		return err
 	}
 
 	responder.CaCert = cacert
@@ -431,7 +422,7 @@ func (responder *OCSPResponder) Serve() error {
 	handler := responder.makeHandler()
 	http.HandleFunc("/", handler)
 	listenOn := fmt.Sprintf("%s:%d", responder.Address, responder.Port)
-	log.Printf("GOCSP-Responder starting on %s", listenOn) //, responder.Ssl)
+	log.Printf("starting on %s", listenOn) //, responder.Ssl)
 	http.ListenAndServe(listenOn, nil)
 	return nil
 }
@@ -440,7 +431,7 @@ func main() {
 	resp := Responder()
 	flag.StringVar(&resp.IndexFile, "index", resp.IndexFile, "CA index filename")
 	flag.StringVar(&resp.CaCertFile, "cacert", resp.CaCertFile, "CA certificate filename")
-	flag.StringVar(&resp.RespCertFile, "rcert", resp.RespCertFile, "responder certificate filename")
+	flag.StringVar(&resp.RespCertFile, "mycert", resp.RespCertFile, "responder certificate filename")
 	flag.StringVar(&resp.Pkcs11ConfigFile, "p11conf", resp.Pkcs11ConfigFile, "pkcs11 config filename")
 	flag.StringVar(&resp.LogFile, "logfile", resp.LogFile, "file to log to")
 	flag.StringVar(&resp.Address, "bind", resp.Address, "bind address")

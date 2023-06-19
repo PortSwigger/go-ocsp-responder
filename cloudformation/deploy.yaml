@@ -1,0 +1,29 @@
+---
+
+# This template is to be executed in the account which holds the certsquirt DB, to allow
+# access from another account.  You will need to create the user first using the 
+# `bootstrap-user.yaml' template.
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: |
+  This cfn-template deploys the AWS OCSP Responder application
+
+Parameters:
+  BuTag:
+    Type: String
+    Description: The BU tag used for cost allocation
+    Default: IT
+
+  EnvironmentTag:
+    Type: String
+    Description: The Environment tag used for cost allocation
+    Default: Production
+
+  RemoteUser:
+    Type: String
+    Description:  The ARN of another user, in another account, to access the certsquirt DB.
+    Default: arn:aws:iam::658786808637:user/ocsp-stack-user-OcspUser-6QZDT4TAWHLU
+
+Resources:
+  
