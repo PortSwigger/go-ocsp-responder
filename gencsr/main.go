@@ -78,6 +78,8 @@ func main() {
 		RawSubject:         asn1Subj,
 		SignatureAlgorithm: x509.SHA256WithRSA,
 	}
+	template.DNSNames = append(template.DNSNames, flFqdn)
+
 	log.Printf("DEBUG: Template is %#v", template)
 
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, signer)

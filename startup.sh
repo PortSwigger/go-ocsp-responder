@@ -1,6 +1,7 @@
 #!/bin/bash
 
 PKCS11CONF=${DEPOT}/pkcs11-config.json
+PUBKEY=${DEPOT/}servicekey.pub
 #REGION=eu-west-1
 # things that should exist in parameter store manager and be available to us via env variables
 #SM_PKCS11_CONF=""     # an ARN of the config used by scepserver -pkcs11-config argument
@@ -29,6 +30,12 @@ if [ ! -f /etc/aws-kms-pkcs11/config.json ]; then
         getsecretblob ${SM_KMS_CONFIG} /etc/aws-kms-pkcs11/config.json
 fi
 
+if [ ! -f ${PUBKEY} ]; then
+        getsecretblob ${SM_PUBKEY} ${PUBKEY}
+fi
+
+# generate a CSR bassed on our key and name
+/usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY}
 # we should be able to start now.
 echo "attempting to start server"
 /usr/bin/go-ocsp-responder -stdout -port ${PORT} -cacert ${CACERT} -p11conf ${PKCS11CONF}
