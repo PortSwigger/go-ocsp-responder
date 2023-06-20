@@ -28,7 +28,7 @@ jobs:
       run: cd go-ocsp-responder && go build -v
 
     - name: Build GenCSR
-      run: cd gencsr && go build -v
+      run: cd go-ocsp-responder/gencsr && go build -v
 
     - name: Install aws-sdk-cpp
       id: vcpkg
