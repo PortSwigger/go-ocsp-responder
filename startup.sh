@@ -35,6 +35,7 @@ if [ ! -f ${PUBKEY} ]; then
 fi
 
 # generate a CSR bassed on our key and name
+cat ${PKCS11CONF}
 /usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY}
 # we should be able to start now.
 echo "attempting to start server"
