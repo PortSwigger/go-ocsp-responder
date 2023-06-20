@@ -28,21 +28,13 @@ var flFqdn, flConfig, flPubKey string
 var flDebug bool
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Ldate | log.Lmicroseconds | log.Lshortfile)
 	flag.StringVar(&flFqdn, "fqdn", "localhost", "hostname for the csr")
 	flag.StringVar(&flPubKey, "pubkey", "", "filename to pass in a pem formatted rsa key from aws kms or similar")
 	flag.BoolVar(&flDebug, "debug", false, "show more stuff about what's happening.")
 	// config
 	flag.StringVar(&flConfig, "config", "config.json", "override the default config file to be used.")
 	flag.Parse()
-
-	// confJson, err := os.ReadFile(flConfig)
-	// if err != nil {
-	// 	log.Fatalf("FATAL: Couldn't open config file config.json (%v)", err)
-	// }
-	// err = json.Unmarshal(confJson, &config)
-	// if err != nil {
-	// 	log.Fatalf("FATAL: malformed config file config.json (%v)", err)
-	// }
 
 	pubKeyPem, err := os.ReadFile(flPubKey)
 	if err != nil {
@@ -90,10 +82,10 @@ func main() {
 }
 
 func initPkcs11(pubkey *rsa.PublicKey) (signer crypto11.Signer, err error) {
-	var flDebug = true
-	if flDebug {
-		log.Printf("DEBUG: init called with pubkey of type %T", pubkey)
-	}
+	// var flDebug = true
+	// if flDebug {
+	// 	log.Printf("DEBUG: init called with pubkey of type %T", pubkey)
+	// }
 	// // depending on the pkcs11 provider we need to pass these in differently.
 	// // For KMS and some others , we need to find the key via the Token Label,
 	// // but the YubiKey and others, we need to locate the token via the slot.
