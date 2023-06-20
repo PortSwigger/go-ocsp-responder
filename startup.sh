@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PKCS11CONF=${DEPOT}/pkcs11-config.json
-PUBKEY=${DEPOT/}servicekey.pub
+PUBKEY=${DEPOT/}/servicekey.pub
 #REGION=eu-west-1
 # things that should exist in parameter store manager and be available to us via env variables
 #SM_PKCS11_CONF=""     # an ARN of the config used by scepserver -pkcs11-config argument

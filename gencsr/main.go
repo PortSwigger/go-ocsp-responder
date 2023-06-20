@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"flag"
@@ -17,14 +16,14 @@ import (
 	"github.com/ThalesIgnite/crypto11"
 )
 
-type Config struct {
-	Path       string `json:"P11Path"`
-	TokenLabel string `json:"P11TokenLabel"`
-	Pin        string `json:"P11Pin"`
-	SlotNumber int    `json:"P11Slot"`
-}
+// type Config struct {
+// 	Path       string `json:"P11Path"`
+// 	TokenLabel string `json:"P11TokenLabel"`
+// 	Pin        string `json:"P11Pin"`
+// 	SlotNumber int    `json:"P11Slot"`
+// }
 
-var config Config
+// var config Config
 var flFqdn, flConfig, flPubKey string
 var flDebug bool
 
@@ -36,14 +35,14 @@ func main() {
 	flag.StringVar(&flConfig, "config", "config.json", "override the default config file to be used.")
 	flag.Parse()
 
-	confJson, err := os.ReadFile(flConfig)
-	if err != nil {
-		log.Fatalf("FATAL: Couldn't open config file config.json (%v)", err)
-	}
-	err = json.Unmarshal(confJson, &config)
-	if err != nil {
-		log.Fatalf("FATAL: malformed config file config.json (%v)", err)
-	}
+	// confJson, err := os.ReadFile(flConfig)
+	// if err != nil {
+	// 	log.Fatalf("FATAL: Couldn't open config file config.json (%v)", err)
+	// }
+	// err = json.Unmarshal(confJson, &config)
+	// if err != nil {
+	// 	log.Fatalf("FATAL: malformed config file config.json (%v)", err)
+	// }
 
 	pubKeyPem, err := os.ReadFile(flPubKey)
 	if err != nil {
@@ -95,45 +94,53 @@ func initPkcs11(pubkey *rsa.PublicKey) (signer crypto11.Signer, err error) {
 	if flDebug {
 		log.Printf("DEBUG: init called with pubkey of type %T", pubkey)
 	}
-	// depending on the pkcs11 provider we need to pass these in differently.
-	// For KMS and some others , we need to find the key via the Token Label,
-	// but the YubiKey and others, we need to locate the token via the slot.
-	//
-	// crypto11.Config
-	var p11Config crypto11.Config
-	if flDebug {
-		log.Printf("Attempting to configure provider with these values: %#v, %#v, %#v, %#v", config.Path, config.Pin, config.TokenLabel, config.SlotNumber)
-	}
-	if config.TokenLabel != "" {
-		p11Config = crypto11.Config{
-			Path: config.Path,
-			Pin:  config.Pin,
-			//SlotNumber: &config.SlotNumber,
-			TokenLabel: config.TokenLabel,
-		}
-	} else {
-		p11Config = crypto11.Config{
-			Path:       config.Path,
-			Pin:        config.Pin,
-			SlotNumber: &config.SlotNumber,
-			//TokenLabel: config.TokenLabel,
-		}
-	}
-
-	if flDebug {
-		log.Printf("DEBUG: P11Config is %#v", p11Config)
-	}
-	ctx, err := crypto11.Configure(&p11Config)
+	// // depending on the pkcs11 provider we need to pass these in differently.
+	// // For KMS and some others , we need to find the key via the Token Label,
+	// // but the YubiKey and others, we need to locate the token via the slot.
+	// //
+	// // crypto11.Config
+	// var p11Config crypto11.Config
+	// if flDebug {
+	// 	log.Printf("Attempting to configure provider with these values: %#v, %#v, %#v, %#v", config.Path, config.Pin, config.TokenLabel, config.SlotNumber)
+	// }
+	// if config.TokenLabel != "" {
+	// 	p11Config = crypto11.Config{
+	// 		Path: config.Path,
+	// 		Pin:  config.Pin,
+	// 		//SlotNumber: &config.SlotNumber,
+	// 		TokenLabel: config.TokenLabel,
+	// 	}
+	// } else {
+	// 	p11Config = crypto11.Config{
+	// 		Path:       config.Path,
+	// 		Pin:        config.Pin,
+	// 		SlotNumber: &config.SlotNumber,
+	// 		//TokenLabel: config.TokenLabel,
+	// 	}
+	// }
+	ctx, err := crypto11.ConfigureFromFile(flConfig)
 	if err != nil {
-		return signer, err
-	}
-	if flDebug {
-		log.Printf("DEBUG: crypto11.Context is : %#v", ctx)
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
 	}
 	signers, err := ctx.FindAllKeyPairs()
 	if err != nil {
-		return signer, err
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
 	}
+
+	// if flDebug {
+	// 	log.Printf("DEBUG: P11Config is %#v", p11Config)
+	// }
+	// ctx, err := crypto11.Configure(&p11Config)
+	// if err != nil {
+	// 	return signer, err
+	// }
+	// if flDebug {
+	// 	log.Printf("DEBUG: crypto11.Context is : %#v", ctx)
+	// }
+	// signers, err := ctx.FindAllKeyPairs()
+	// if err != nil {
+	// 	return signer, err
+	// }
 	if flDebug {
 		log.Printf("Signers are: %#v", signers)
 	}
