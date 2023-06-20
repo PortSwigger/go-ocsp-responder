@@ -12,8 +12,9 @@ COPY aws-kms-pkcs11/aws_kms_pkcs11.so /usr/local/lib/
 # create required symlinks for above libs
 RUN /usr/sbin/ldconfig
 
-# Copy SCEP server images
+# Copy OCSP server images
 COPY go-ocsp-responder/go-ocsp-responder /usr/bin/go-ocsp-responder
+COPY go-ocsp-responder/gencsr/gencsr /usr/bin/gencsr
 # Copy fake config so we can write to the filesystem.  FIXME hardcoded depot location.
 RUN mkdir -p /etc/aws-kms-pkcs11/ && ln -s /depot/aws-kms-config.json /etc/aws-kms-pkcs11/config.json
 
