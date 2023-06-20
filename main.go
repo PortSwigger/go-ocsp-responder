@@ -428,6 +428,7 @@ func (responder *OCSPResponder) Serve() error {
 }
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Ldate | log.Lmicroseconds | log.Lshortfile)
 	resp := Responder()
 	flag.StringVar(&resp.IndexFile, "index", resp.IndexFile, "CA index filename")
 	flag.StringVar(&resp.CaCertFile, "cacert", resp.CaCertFile, "CA certificate filename")
