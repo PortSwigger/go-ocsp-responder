@@ -71,13 +71,14 @@ func main() {
 	}
 	template.DNSNames = append(template.DNSNames, flFqdn)
 
-	log.Printf("DEBUG: Template is %#v", template)
+	fmt.Printf("DEBUG: Template is %#v", template)
 
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, signer)
 	if err != nil {
-		log.Printf("Error: %v", err)
+		fmt.Printf("Error: %v", err)
 	}
 	pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
+	fmt.Printf("end of gencsr")
 
 }
 
