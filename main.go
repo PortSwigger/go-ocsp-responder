@@ -95,6 +95,10 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 		case "POST":
 			b.ReadFrom(r.Body)
 		case "GET":
+			if r.URL.Path == "/healthcheck" {
+				w.WriteHeader(200)
+				w.Write([]byte("oakelydokely"))
+			}
 			log.Println(r.URL.Path)
 			gd, err := base64.StdEncoding.DecodeString(r.URL.Path[1:])
 			if err != nil {
