@@ -25,7 +25,7 @@ getsecretblob() {
 getsecretblob ${SM_KMS_CONFIG} ${AWSKMSCONF}
 getsecretblob ${SM_PKCS11_CONF} ${PKCS11CONF}
 getsecretblob ${SM_PUBKEY} ${PUBKEY}
-getsecretblob ${SM_CA_CERTFILE} {$CACERTFILE}
+getsecretblob ${SM_CA_CERTFILE} ${CACERTFILE}
 getsecretblob ${SM_RESPONSE_CERTFILE} ${SERVICECERT}
 
 # generate a CSR bassed on our key and name
