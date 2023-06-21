@@ -40,7 +40,7 @@ ls -l /etc/aws-kms-pkcs11
 
 echo "Here's my env..."
 env
-/usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY} -debug true
+/usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY}
 # we should be able to start now.
 echo "attempting to start server"
 /usr/bin/go-ocsp-responder -stdout -port ${PORT} -cacert ${CACERTFILE} -p11conf ${PKCS11CONF} -mycert ${SERVICECERT}

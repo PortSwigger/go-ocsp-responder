@@ -9,21 +9,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
 	"github.com/ThalesIgnite/crypto11"
 )
 
-// type Config struct {
-// 	Path       string `json:"P11Path"`
-// 	TokenLabel string `json:"P11TokenLabel"`
-// 	Pin        string `json:"P11Pin"`
-// 	SlotNumber int    `json:"P11Slot"`
-// }
-
-// var config Config
 var flFqdn, flConfig, flPubKey string
 var flDebug bool
 
@@ -49,9 +40,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Printf("Got a %T, with remaining data: %q", pub, rest)
-
+	if flDebug {
+		log.Printf("Got a %T, with remaining data: %q", pub, rest)
+	}
 	// now find the Signer...
 	signer, err := initPkcs11(pub.(*rsa.PublicKey))
 	if err != nil {
@@ -71,14 +62,14 @@ func main() {
 	}
 	template.DNSNames = append(template.DNSNames, flFqdn)
 
-	fmt.Printf("DEBUG: Template is %#v", template)
+	log.Printf("DEBUG: Template is %#v", template)
 
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, signer)
 	if err != nil {
-		fmt.Printf("Error: %v", err)
+		log.Printf("Error: %v", err)
 	}
 	pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
-	fmt.Printf("end of gencsr")
+	log.Println("end of gencsr")
 
 }
 
