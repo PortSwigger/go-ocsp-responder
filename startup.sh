@@ -4,7 +4,7 @@ PKCS11CONF=${DEPOT}/pkcs11-config.json
 PUBKEY=${DEPOT}/servicekey.pub
 AWSKMSCONF=${DEPOT}/aws-kms-config.json
 SERVICECERT=${DEPOT}/service-cert.pem
-CACERT=${DEPOT}/ca.pem
+CACERTFILE=${DEPOT}/ca.pem
 
 #REGION=eu-west-1
 # things that should exist in parameter store manager and be available to us via env variables
@@ -37,6 +37,9 @@ echo "pubkey contents"
 cat ${PUBKEY} 
 echo "/etc/aws-kms-pkcs11/ config link"
 ls -l /etc/aws-kms-pkcs11
+
+echo "Here's my env..."
+env
 /usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY} -debug true
 # we should be able to start now.
 echo "attempting to start server"
