@@ -25,7 +25,14 @@ getsecretblob ${SM_PKCS11_CONF} ${PKCS11CONF}
 getsecretblob ${SM_PUBKEY} ${PUBKEY}
 
 # generate a CSR bassed on our key and name
+echo "pkcs11 conf file contents"
 cat ${PKCS11CONF}
+echo "aws-kms-config file contents"
+cat ${AWSKMSCONF}
+echo "pubkey contents"
+cat ${PUBKEY} 
+echo "/etc/aws-kms-pkcs11/ config link"
+ls -l /etc/aws-kms-pkcs11
 /usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY} -debug true
 # we should be able to start now.
 echo "attempting to start server"
