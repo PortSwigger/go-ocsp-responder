@@ -98,6 +98,7 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 			if r.URL.Path == "/healthcheck" {
 				w.WriteHeader(200)
 				w.Write([]byte("oakelydokely"))
+				log.Println("Healthcheck acknowledged")
 				return
 			}
 			log.Println(r.URL.Path)
