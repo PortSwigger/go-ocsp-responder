@@ -3,6 +3,8 @@
 PKCS11CONF=${DEPOT}/pkcs11-config.json
 PUBKEY=${DEPOT}/servicekey.pub
 AWSKMSCONF=${DEPOT}/aws-kms-config.json
+SERVICECERT=${DEPOT}/service-cert.pem
+CACERT=${DEPOT}/ca.pem
 
 #REGION=eu-west-1
 # things that should exist in parameter store manager and be available to us via env variables
@@ -23,6 +25,8 @@ getsecretblob() {
 getsecretblob ${SM_KMS_CONFIG} ${AWSKMSCONF}
 getsecretblob ${SM_PKCS11_CONF} ${PKCS11CONF}
 getsecretblob ${SM_PUBKEY} ${PUBKEY}
+getsecretblob ${SM_CA_CERTFILE} {$CACERTFILE}
+getsecretblob ${SM_RESPONSE_CERTFILE} ${SERVICECERT}
 
 # generate a CSR bassed on our key and name
 echo "pkcs11 conf file contents"
@@ -36,4 +40,4 @@ ls -l /etc/aws-kms-pkcs11
 /usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY} -debug true
 # we should be able to start now.
 echo "attempting to start server"
-/usr/bin/go-ocsp-responder -stdout -port ${PORT} -cacert ${CACERT} -p11conf ${PKCS11CONF}
+/usr/bin/go-ocsp-responder -stdout -port ${PORT} -cacert ${CACERTFILE} -p11conf ${PKCS11CONF} -mycert ${SERVICECERT}
