@@ -156,7 +156,7 @@ type x509Record struct {
 	Subject            string
 	NotBefore          time.Time
 	NotAfter           time.Time
-	RevocationTime     time.Time
+	RevokedOn          time.Time
 	PublicKeyAlgorithm x509.PublicKeyAlgorithm
 	SignatureAlgorithm x509.SignatureAlgorithm
 	DNSNames           []string
@@ -253,6 +253,7 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 		expression.Name("Subject"),
 		expression.Name("NotAfter"),
 		expression.Name("Environment"),
+		expression.Name("RevokedOn"),
 	)
 
 	//expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
@@ -276,7 +277,7 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 		return record, err
 	}
 	if len(output.Items) > 0 {
-		log.Printf("%#v", output.Items)
+		//log.Printf("%#v", output.Items)
 		// we should only ever have one record here unless we're cryptographically compromised.
 		for _, i := range output.Items {
 			err = dynamodbattribute.UnmarshalMap(i, &record)
@@ -319,7 +320,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		if ent.Status == StatusRevoked {
 			log.Print("This certificate is revoked")
 			status = ocsp.Revoked
-			revokedAt = ent.RevocationTime
+			revokedAt = ent.RevokedOn
 		} else if ent.Status == StatusValid {
 			log.Print("This certificate is valid")
 			status = ocsp.Good
@@ -384,7 +385,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		Certificate:      responder.RespCert,
 		RevocationReason: ocsp.Unspecified,
 		IssuerHash:       req.HashAlgorithm,
-		RevokedAt:        revokedAt,
+		RevokedAt:        revokedAt, // FIXME
 		ThisUpdate:       time.Now().AddDate(0, 0, -1).UTC(),
 		//adding 1 day after the current date. This ocsp library sets the default date to epoch which makes ocsp clients freak out.
 		NextUpdate: time.Now().AddDate(0, 0, 1).UTC(),
