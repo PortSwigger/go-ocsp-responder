@@ -248,15 +248,15 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 	filt := expression.Name("SerialNumber").Equal(expression.Value(sn.String()))
 
 	// Ref: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ProjectionExpressions.html
-	// proj := expression.NamesList(
-	// 	expression.Name("Status"),
-	// 	expression.Name("Subject"),
-	// 	expression.Name("NotAfter"),
-	// 	expression.Name("Environment"),
-	// )
+	proj := expression.NamesList(
+		expression.Name("Status"),
+		expression.Name("Subject"),
+		expression.Name("NotAfter"),
+		expression.Name("Environment"),
+	)
 
 	//expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
-	expr, err := expression.NewBuilder().WithFilter(filt).Build()
+	expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
 	if err != nil {
 		return record, err
 	}
@@ -265,9 +265,9 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 	params := &dynamodb.ScanInput{
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
+		FilterExpression:          expr.Filter(),
 		ProjectionExpression:      expr.Projection(),
 		TableName:                 aws.String(tableName),
-		//FilterExpression:          expr.Filter(),
 	}
 
 	// Make the DynamoDB Query initial API call
@@ -280,6 +280,7 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 		// we should only ever have one record here unless we're cryptographically compromised.
 		for _, i := range output.Items {
 			err = dynamodbattribute.UnmarshalMap(i, &record)
+			log.Printf("DEBUG: record is %#v", record)
 			return record, err
 		}
 	}
