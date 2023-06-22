@@ -43,4 +43,4 @@ env
 /usr/bin/gencsr -fqdn ${ENDPOINT} -config ${PKCS11CONF} -pubkey ${PUBKEY}
 # we should be able to start now.
 echo "attempting to start server"
-/usr/bin/go-ocsp-responder -stdout -port ${PORT} -cacert ${CACERTFILE} -p11conf ${PKCS11CONF} -mycert ${SERVICECERT}
+/usr/bin/go-ocsp-responder -stdout -port ${PORT} -cacert ${CACERTFILE} -p11conf ${PKCS11CONF} -mycert ${SERVICECERT} -debug true

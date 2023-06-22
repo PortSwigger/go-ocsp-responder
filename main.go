@@ -56,6 +56,7 @@ type OCSPResponder struct {
 	CaCert           *x509.Certificate
 	RespCert         *x509.Certificate
 	NonceList        [][]byte
+	Debug            bool
 }
 
 func Responder() *OCSPResponder {
@@ -73,15 +74,16 @@ func Responder() *OCSPResponder {
 		CaCert:           nil,
 		RespCert:         nil,
 		NonceList:        nil,
+		Debug:            false,
 	}
 }
 
 // Creates an OCSP http handler and returns it
 func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Got %s request from %s", r.Method, r.RemoteAddr)
+		//log.Printf("INFO: Got %s request from %s", r.Method, r.RemoteAddr)
 		if responder.Strict && r.Header.Get("Content-Type") != "application/ocsp-request" {
-			log.Println("Strict mode requires correct Content-Type header")
+			log.Printf("ERROR: Strict mode requires correct Content-Type header")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -94,7 +96,9 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 			if r.URL.Path == "/healthcheck" {
 				w.WriteHeader(200)
 				w.Write([]byte("oakelydokely"))
-				log.Println("Healthcheck acknowledged")
+				if responder.Debug {
+					log.Printf("INFO: Healthcheck acknowledged")
+				}
 				return
 			}
 			log.Printf("INFO: Request from %v using %v on resource %v", r.RemoteAddr, r.Method, r.URL.Path)
@@ -120,7 +124,7 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		log.Print("Writing response")
+		//log.Print("Writing response")
 		w.Write(resp)
 	}
 }
@@ -414,6 +418,7 @@ func main() {
 	//flag.BoolVar(&resp.Ssl, "ssl", resp.Ssl, "use SSL, this is not widely supported and not recommended")
 	flag.BoolVar(&resp.Strict, "strict", resp.Strict, "require content type HTTP header")
 	flag.BoolVar(&resp.LogToStdout, "stdout", resp.LogToStdout, "log to stdout, not the log file")
+	flag.BoolVar(&resp.Debug, "debug", resp.Debug, "enable debugging info")
 	flag.Parse()
 	resp.Serve()
 }
