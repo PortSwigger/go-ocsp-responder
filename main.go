@@ -52,12 +52,10 @@ type OCSPResponder struct {
 	Strict           bool
 	Port             int
 	Address          string
-	// TODO ?
-	//IndexEntries     []IndexEntry
-	IndexModTime time.Time
-	CaCert       *x509.Certificate
-	RespCert     *x509.Certificate
-	NonceList    [][]byte
+	IndexModTime     time.Time
+	CaCert           *x509.Certificate
+	RespCert         *x509.Certificate
+	NonceList        [][]byte
 }
 
 func Responder() *OCSPResponder {
@@ -71,12 +69,10 @@ func Responder() *OCSPResponder {
 		Strict:           false,
 		Port:             8888,
 		Address:          "",
-		//Ssl:              false,
-		//IndexEntries:     nil,
-		IndexModTime: time.Time{},
-		CaCert:       nil,
-		RespCert:     nil,
-		NonceList:    nil,
+		IndexModTime:     time.Time{},
+		CaCert:           nil,
+		RespCert:         nil,
+		NonceList:        nil,
 	}
 }
 
@@ -101,17 +97,16 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 				log.Println("Healthcheck acknowledged")
 				return
 			}
-			log.Println(r.URL.Path)
+			log.Printf("INFO: Request from %v using %v on resource %v", r.RemoteAddr, r.Method, r.URL.Path)
 			gd, err := base64.StdEncoding.DecodeString(r.URL.Path[1:])
 			if err != nil {
-				log.Println(err)
+				// tell the caller to go away.
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			r := bytes.NewReader(gd)
 			b.ReadFrom(r)
 		default:
-			log.Println("Unsupported request method")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -120,7 +115,7 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 		w.Header().Set("Content-Type", "application/ocsp-response")
 		resp, err := responder.verify(b.Bytes())
 		if err != nil {
-			log.Print(err)
+			log.Printf("ERROR: %v", err)
 			// technically we should return an ocsp error response. but this is probably fine
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -136,15 +131,6 @@ const (
 	StatusRevoked = "R"
 	StatusExpired = "E"
 )
-
-// // TODO - implement dynamodb lookups instead.
-// type CertStatus struct {
-// 	Status            string
-// 	Serial            *big.Int
-// 	IssueTime         time.Time
-// 	RevocationTime    time.Time
-// 	DistinguishedName string
-// }
 
 // maps across to github.com/PortSwigger/certsquirt
 // DynamoDB records (https://github.com/PortSwigger/certsquirt/blob/main/db.go#L26)
@@ -167,22 +153,6 @@ type x509Record struct {
 	DerCert            []byte
 }
 
-/*
-// updates the index if necessary and then searches for the given index in the
-// index list
-func (responder *OCSPResponder) getIndexEntry(s *big.Int) (*IndexEntry, error) {
-	log.Printf("Looking for serial 0x%x", s)
-	if err := responder.parseIndex(); err != nil {
-		return nil, err
-	}
-	for _, ent := range responder.IndexEntries {
-		if ent.Serial.Cmp(s) == 0 {
-			return &ent, nil
-		}
-	}
-	return nil, fmt.Errorf("serial 0x%x not found", s)
-}
-*/
 // parses a pem encoded x509 certificate
 func parseCertFile(filename string) (*x509.Certificate, error) {
 	ct, err := os.ReadFile(filename)
@@ -300,7 +270,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	//req, exts, err := ocsp.ParseRequest(rawreq)
 
 	if err != nil {
-		log.Println(err)
+		log.Printf("ERROR: While trying to decode the request: (%v)", err)
 		return nil, err
 	}
 
@@ -310,22 +280,20 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// get the index entry, if it exists
 	ent, err := responder.getCertStatus(req.SerialNumber)
 	if err != nil {
 		log.Println(err)
 		status = ocsp.Unknown
 	} else {
-		log.Printf("Found entry %+v", ent)
+		log.Printf("INFO: Found entry %+v", ent)
 		if ent.Status == StatusRevoked {
-			log.Print("This certificate is revoked")
 			status = ocsp.Revoked
 			revokedAt = ent.RevokedOn
 		} else if ent.Status == StatusValid {
-			log.Print("This certificate is valid")
 			status = ocsp.Good
 		}
 	}
+
 	// I feel the following are serious enough to be fatal errors...
 	ctx, err := crypto11.ConfigureFromFile(responder.Pkcs11ConfigFile)
 	if err != nil {
@@ -358,25 +326,24 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	// TODO
 	// var responseExtensions []pkix.Extension
 	// TODO
-	//nonce := checkForNonceExtension(exts)
+	// nonce := checkForNonceExtension(exts)
 
-	// check if the nonce has been used before
-	if responder.NonceList == nil {
-		responder.NonceList = make([][]byte, 10)
-	}
+	// // check if the nonce has been used before
+	// if responder.NonceList == nil {
+	// 	responder.NonceList = make([][]byte, 10)
+	// }
 
-	/* TODO
-	if nonce != nil {
-		for _, n := range self.NonceList {
-			if bytes.Compare(n, nonce.Value) == 0 {
-				return nil, errors.New("This nonce has already been used")
-			}
-		}
+	// // TODO
+	// if nonce != nil {
+	// 	for _, n := range self.NonceList {
+	// 		if bytes.Compare(n, nonce.Value) == 0 {
+	// 			return nil, errors.New("This nonce has already been used")
+	// 		}
+	// 	}
 
-		self.NonceList = append(self.NonceList, nonce.Value)
-		responseExtensions = append(responseExtensions, *nonce)
-	}
-	*/
+	// 	self.NonceList = append(self.NonceList, nonce.Value)
+	// 	responseExtensions = append(responseExtensions, *nonce)
+	// }
 
 	// construct response template
 	rtemplate := ocsp.Response{
@@ -385,7 +352,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		Certificate:      responder.RespCert,
 		RevocationReason: ocsp.Unspecified,
 		IssuerHash:       req.HashAlgorithm,
-		RevokedAt:        revokedAt, // FIXME
+		RevokedAt:        revokedAt,
 		ThisUpdate:       time.Now().AddDate(0, 0, -1).UTC(),
 		//adding 1 day after the current date. This ocsp library sets the default date to epoch which makes ocsp clients freak out.
 		NextUpdate: time.Now().AddDate(0, 0, 1).UTC(),
@@ -397,7 +364,6 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return resp, err
 }
 
@@ -416,11 +382,11 @@ func (responder *OCSPResponder) Serve() error {
 	//the certs should not change, so lets keep them in memory
 	cacert, err := parseCertFile(responder.CaCertFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("FATAL: %v", err)
 	}
 	respcert, err := parseCertFile(responder.RespCertFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("FATAL: %v", err)
 	}
 
 	responder.CaCert = cacert
