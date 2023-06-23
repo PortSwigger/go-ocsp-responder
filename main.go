@@ -171,17 +171,17 @@ func parseCertFile(filename string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// takes a list of extensions and returns the nonce extension if it is present
-func checkForNonceExtension(exts []pkix.Extension) *pkix.Extension {
-	nonce_oid := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2}
-	for _, ext := range exts {
-		if ext.Id.Equal(nonce_oid) {
-			log.Println("Detected nonce extension")
-			return &ext
-		}
-	}
-	return nil
-}
+// // takes a list of extensions and returns the nonce extension if it is present
+// func checkForNonceExtension(exts []pkix.Extension) *pkix.Extension {
+// 	nonce_oid := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2}
+// 	for _, ext := range exts {
+// 		if ext.Id.Equal(nonce_oid) {
+// 			log.Println("Detected nonce extension")
+// 			return &ext
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (responder *OCSPResponder) verifyIssuer(req *ocsp.Request) error {
 	h := req.HashAlgorithm.New()

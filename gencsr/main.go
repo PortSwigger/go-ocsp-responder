@@ -75,6 +75,11 @@ func main() {
 
 func initPkcs11(pubkey *rsa.PublicKey) (signer crypto11.Signer, err error) {
 	log.Printf("DEBUG: flConfig is set to %v", flConfig)
+	contents, err := os.ReadFile(flConfig)
+	if err != nil {
+		log.Fatalf("FATAL: Error opening config file %v", err)
+	}
+	log.Printf("DEBUG: File contents are\n%v", string(contents))
 	ctx, err := crypto11.ConfigureFromFile(flConfig)
 	if err != nil {
 		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
