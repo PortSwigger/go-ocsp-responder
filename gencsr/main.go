@@ -75,6 +75,7 @@ func main() {
 
 func initPkcs11(pubkey *rsa.PublicKey) (signer crypto11.Signer, err error) {
 	log.Printf("DEBUG: flConfig is set to %v", flConfig)
+	_ = os.Setenv("AWS_KMS_PKCS11_DEBUG", "1")
 	contents, err := os.ReadFile(flConfig)
 	if err != nil {
 		log.Fatalf("FATAL: Error opening config file %v", err)
