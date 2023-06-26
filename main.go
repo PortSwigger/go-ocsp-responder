@@ -96,9 +96,10 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 			if r.URL.Path == "/healthcheck" {
 				w.WriteHeader(200)
 				w.Write([]byte("oakelydokely"))
-				if responder.Debug {
-					log.Printf("INFO: Healthcheck acknowledged")
-				}
+				// Possibly too verbose, uncomment if needed.
+				//if responder.Debug {
+				//	log.Printf("INFO: Healthcheck acknowledged")
+				//}
 				return
 			}
 			log.Printf("INFO: Request from %v using %v on resource %v", r.RemoteAddr, r.Method, r.URL.Path)
