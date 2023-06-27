@@ -308,6 +308,9 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	if err != nil {
 		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
 	}
+
+	log.Printf("DEBUG: Signers is %v", signers)
+
 	// test we can use to sign and verify
 	data := []byte("mary had a little lamb")
 	h := sha256.New()
