@@ -57,6 +57,7 @@ type OCSPResponder struct {
 	RespCert         *x509.Certificate
 	NonceList        [][]byte
 	Debug            bool
+	Signer           crypto11.Signer
 }
 
 func Responder() *OCSPResponder {
@@ -75,6 +76,7 @@ func Responder() *OCSPResponder {
 		RespCert:         nil,
 		NonceList:        nil,
 		Debug:            false,
+		Signer:           nil,
 	}
 }
 
@@ -299,35 +301,35 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		}
 	}
 
-	// I feel the following are serious enough to be fatal errors...
-	ctx, err := crypto11.ConfigureFromFile(responder.Pkcs11ConfigFile)
-	if err != nil {
-		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
-	}
-	signers, err := ctx.FindAllKeyPairs()
-	if err != nil {
-		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
-	}
+	// // I feel the following are serious enough to be fatal errors...
+	// ctx, err := crypto11.ConfigureFromFile(responder.Pkcs11ConfigFile)
+	// if err != nil {
+	// 	log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	// }
+	// signers, err := ctx.FindAllKeyPairs()
+	// if err != nil {
+	// 	log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	// }
 
-	log.Printf("DEBUG: Signers is %v", signers)
+	// log.Printf("DEBUG: Signers is %v", signers)
 
-	// test we can use to sign and verify
-	data := []byte("mary had a little lamb")
-	h := sha256.New()
-	_, err = h.Write(data)
-	if err != nil {
-		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
-	}
-	hash := h.Sum([]byte{})
+	// // test we can use to sign and verify
+	// data := []byte("mary had a little lamb")
+	// h := sha256.New()
+	// _, err = h.Write(data)
+	// if err != nil {
+	// 	log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	// }
+	// hash := h.Sum([]byte{})
 
-	sig, err := signers[0].Sign(rand.Reader, hash, crypto.SHA256)
-	if err != nil {
-		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
-	}
-	err = rsa.VerifyPKCS1v15(signers[0].Public().(*rsa.PublicKey), crypto.SHA256, hash, sig)
-	if err != nil {
-		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
-	}
+	// sig, err := signers[0].Sign(rand.Reader, hash, crypto.SHA256)
+	// if err != nil {
+	// 	log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	// }
+	// err = rsa.VerifyPKCS1v15(signers[0].Public().(*rsa.PublicKey), crypto.SHA256, hash, sig)
+	// if err != nil {
+	// 	log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	// }
 
 	//
 	// check for nonce extension
@@ -368,7 +370,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 	}
 
 	// make a response to return
-	resp, err := ocsp.CreateResponse(responder.CaCert, responder.RespCert, rtemplate, signers[0])
+	resp, err := ocsp.CreateResponse(responder.CaCert, responder.RespCert, rtemplate, responder.Signer)
 	if err != nil {
 		return nil, err
 	}
@@ -399,6 +401,39 @@ func (responder *OCSPResponder) Serve() error {
 
 	responder.CaCert = cacert
 	responder.RespCert = respcert
+
+	// now init the crypto
+	ctx, err := crypto11.ConfigureFromFile(responder.Pkcs11ConfigFile)
+	if err != nil {
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	}
+	signers, err := ctx.FindAllKeyPairs()
+	if err != nil {
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	}
+
+	log.Printf("DEBUG: Signers is %v", signers)
+	log.Printf("DEBUG: Signers len is %v", len(signers))
+
+	// test we can use to sign and verify
+	data := []byte("mary had a little lamb")
+	h := sha256.New()
+	_, err = h.Write(data)
+	if err != nil {
+		log.Fatalf("FATAL: Could not initialise PKCS11 provider (%v)", err)
+	}
+	hash := h.Sum([]byte{})
+
+	sig, err := signers[0].Sign(rand.Reader, hash, crypto.SHA256)
+	if err != nil {
+		log.Fatalf("FATAL: Could not sign using PKCS11 provider (%v)", err)
+	}
+	err = rsa.VerifyPKCS1v15(signers[0].Public().(*rsa.PublicKey), crypto.SHA256, hash, sig)
+	if err != nil {
+		log.Fatalf("FATAL: Could not verify signature (%v)", err)
+	}
+	// ok, set the signer for future use
+	responder.Signer = signers[0] // aws-kms-pkcs11 should only ever let us get 1 signer
 
 	// get handler and serve
 	handler := responder.makeHandler()
