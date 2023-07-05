@@ -94,6 +94,7 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 		switch r.Method {
 		case "POST":
 			b.ReadFrom(r.Body)
+			log.Printf("INFO: Request from %v using %v on resource %v", r.Header.Get("X-Forwarded-For"), r.Method, r.URL.Path)
 		case "GET":
 			if r.URL.Path == "/healthcheck" {
 				w.WriteHeader(200)
