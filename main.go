@@ -105,6 +105,7 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 				return
 			}
 			log.Printf("INFO: Request from %v using %v on resource %v", r.RemoteAddr, r.Method, r.URL.Path)
+			log.Printf("INFO: Request X-Forwarded for: %v", r.Header.Get("X-Forwarded-For"))
 			gd, err := base64.StdEncoding.DecodeString(r.URL.Path[1:])
 			if err != nil {
 				// tell the caller to go away.
@@ -229,8 +230,10 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 		expression.Name("Status"),
 		expression.Name("Subject"),
 		expression.Name("NotAfter"),
+		expression.Name("NotBefore"),
 		expression.Name("Environment"),
 		expression.Name("RevokedOn"),
+		expression.Name("SerialNumber"),
 	)
 
 	//expr, err := expression.NewBuilder().WithFilter(filt).WithProjection(proj).Build()
@@ -258,7 +261,7 @@ func (responder *OCSPResponder) getCertStatus(sn *big.Int) (record x509Record, e
 		// we should only ever have one record here unless we're cryptographically compromised.
 		for _, i := range output.Items {
 			err = dynamodbattribute.UnmarshalMap(i, &record)
-			log.Printf("DEBUG: record is %#v", record)
+			//log.Printf("DEBUG: record is %#v", record)
 			return record, err
 		}
 	}
