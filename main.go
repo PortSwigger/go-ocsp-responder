@@ -104,8 +104,9 @@ func (responder *OCSPResponder) makeHandler() func(w http.ResponseWriter, r *htt
 				//}
 				return
 			}
-			log.Printf("INFO: Request from %v using %v on resource %v", r.RemoteAddr, r.Method, r.URL.Path)
-			log.Printf("INFO: Request X-Forwarded for: %v", r.Header.Get("X-Forwarded-For"))
+			//log.Printf("INFO: Request from %v using %v on resource %v", r.RemoteAddr, r.Method, r.URL.Path)
+			// requests via the AWS ALB, use the x-fwd header instead.
+			log.Printf("INFO: Request from %v using %v on resource %v", r.Header.Get("X-Forwarded-For"), r.Method, r.URL.Path)
 			gd, err := base64.StdEncoding.DecodeString(r.URL.Path[1:])
 			if err != nil {
 				// tell the caller to go away.
