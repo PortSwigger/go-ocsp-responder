@@ -297,7 +297,7 @@ func (responder *OCSPResponder) verify(rawreq []byte) ([]byte, error) {
 		log.Println(err)
 		status = ocsp.Unknown
 	} else {
-		log.Printf("INFO: Found (%v) status for Subject %v (SerialNumber: %v).  Cert expiry date is %v", ent.Status, ent.Subject, ent.SerialNumber, ent.NotAfter)
+		log.Printf("INFO: Found Status %v for Subject %v (SerialNumber: %v).  Cert expiry date is %v", ent.Status, ent.Subject, ent.SerialNumber, ent.NotAfter)
 		if ent.Status == StatusRevoked {
 			status = ocsp.Revoked
 			revokedAt = ent.RevokedOn
