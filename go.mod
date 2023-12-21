@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/ThalesIgnite/crypto11 v1.2.5
-	golang.org/x/crypto v0.8.0
+	golang.org/x/crypto v0.17.0
 )
 
 require github.com/jmespath/go-jmespath v0.4.0 // indirect
