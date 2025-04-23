@@ -3,6 +3,21 @@ FROM ubuntu:latest
 # Install aws kms dependencies
 RUN apt update && apt install --no-install-recommends -y libjson-c5 jq
 
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y curl unzip less groff jq python3 libjson-c5 && \
+    apt-get clean
+
+# aws clie isn't in apt repo's anymore....
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip" && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# Verify installation
+RUN aws --version
+
 ### add required libs for pkcs11 provider
 # ignore symlinks.
 COPY vcpkg/installed/x64-linux-dynamic/lib/ /usr/local/lib/
