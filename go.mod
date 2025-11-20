@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	github.com/ThalesGroup/crypto11 v1.4.1
 	github.com/aws/aws-sdk-go v1.55.7
-	golang.org/x/crypto v0.37.0
+	golang.org/x/crypto v0.45.0
 )
 
 require (
