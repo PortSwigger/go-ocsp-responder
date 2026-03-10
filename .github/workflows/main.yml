@@ -17,13 +17,16 @@ jobs:
       contents: read
       packages: write
     steps:
+    - name: Safer Runner
+      uses: portswigger-tim/safer-runner-action@a302a6cf1e0af681fc822a11f7fc12731596f7e7 # main
+
     - name: Checkout go-ocsp-responder
-      uses: actions/checkout@v3
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
       with:
         path: go-ocsp-responder
 
     - name: Setup Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4
       with:
         go-version: 'stable'
 
@@ -35,20 +38,20 @@ jobs:
 
     - name: Install aws-sdk-cpp
       id: vcpkg
-      uses: johnwason/vcpkg-action@v4
+      uses: johnwason/vcpkg-action@d3021babf597be00a161e643d78a4f7d10f18ec3 # v4
       with:
         pkgs: aws-sdk-cpp[kms] aws-sdk-cpp[acm-pca]
         triplet: x64-linux-dynamic
         token: ${{ github.token }}
 
     - name: Checkout aws-kms-pkcs11
-      uses: actions/checkout@v3
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
       with:
         repository: "JackOfMostTrades/aws-kms-pkcs11"
         path: aws-kms-pkcs11
 
     - name: Install build dependencies
-      uses: ConorMacBride/install-package@v1
+      uses: ConorMacBride/install-package@3e7ad059e07782ee54fa35f827df52aae0626f30 # v1
       with:
         apt: build-essential libjson-c-dev libp11-kit-dev libcurl4 libcurl4-openssl-dev
 
@@ -56,13 +59,13 @@ jobs:
       run: cd aws-kms-pkcs11 && AWS_SDK_PATH=${{ github.workspace }}/vcpkg/installed/x64-linux-dynamic make
 
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7 # v2
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2
 
     - name: log in to the container registry
-      uses: docker/login-action@v2.1.0
+      uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
@@ -70,12 +73,12 @@ jobs:
 
     - name: extract metadata (tags, labels) for docker
       id: meta
-      uses: docker/metadata-action@v4.3.0
+      uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96 # v4.3.0
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
     - name: Build the Docker image
-      uses: docker/build-push-action@v4.0.0
+      uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
       with:
         context: .
         platforms: linux/amd64
