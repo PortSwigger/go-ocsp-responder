@@ -31,7 +31,7 @@ RUN CGO_ENABLED=1 go build -trimpath -o /out/go-ocsp-responder . && \
 # That is why the image carries a vcpkg built libcurl and OpenSSL. Pinning the
 # vcpkg release pins those versions; bump VCPKG_COMMIT to pick up fixes.
 # ---------------------------------------------------------------------------
-FROM ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d AS native-build
+FROM ubuntu:24.10@sha256:cdf755952ed117f6126ff4e65810bf93767d4c38f5c7185b50ec1f1078b464cc AS native-build
 
 # vcpkg release 2026.10.16 (curl 8.23.0, openssl 3.6.5, aws-sdk-cpp 1.11.900)
 ARG VCPKG_COMMIT=5d4a3dc90c0b3773f3bac81bf41297b54328f471
@@ -73,7 +73,7 @@ RUN git init -q /aws-kms-pkcs11 && cd /aws-kms-pkcs11 && \
 # hash are pinned; the archive was checked against the AWS CLI team PGP key
 # (FB5D B77F D5C1 18B8 0511 ADA8 A631 0ACC 4672 475C) when the pin was set.
 # ---------------------------------------------------------------------------
-FROM ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d AS awscli
+FROM ubuntu:24.10@sha256:cdf755952ed117f6126ff4e65810bf93767d4c38f5c7185b50ec1f1078b464cc AS awscli
 ARG AWSCLI_VERSION=2.39.6
 ARG AWSCLI_SHA256=7a121264f2637a3b90767aaf5bdd43ee88b8c925a931d0479fa2ce22b1a2fa76
 RUN apt-get update && \
@@ -86,7 +86,7 @@ RUN apt-get update && \
 # ---------------------------------------------------------------------------
 # Runtime
 # ---------------------------------------------------------------------------
-FROM ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+FROM ubuntu:24.10@sha256:cdf755952ed117f6126ff4e65810bf93767d4c38f5c7185b50ec1f1078b464cc
 
 # apt-get upgrade picks up Ubuntu security fixes released after the base image
 # was published. Only what startup.sh and the PKCS#11 module need is installed.
