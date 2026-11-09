@@ -1,11 +1,11 @@
 module github.com/PortSwigger/go-ocsp-responder/v2
 
-go 1.24.1
+go 1.26.0
 
 require (
 	github.com/ThalesGroup/crypto11 v1.4.1
-	github.com/aws/aws-sdk-go v1.55.7
-	golang.org/x/crypto v0.37.0
+	github.com/aws/aws-sdk-go v1.55.8
+	golang.org/x/crypto v0.58.0
 )
 
 require (
