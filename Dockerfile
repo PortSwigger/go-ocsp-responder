@@ -14,7 +14,7 @@
 # PKCS#11 module with dlopen. Bookworm's glibc (2.36) is older than the
 # runtime's (2.39), so the binaries run on the Ubuntu 24.04 runtime.
 # ---------------------------------------------------------------------------
-FROM golang:1.27.3-bookworm@sha256:025eefc1e8dbe63201734a72aaa0a55d7a077f2d8410432f8ae2f3e939f32871 AS go-build
+FROM golang:1.27.3-bookworm@sha256:dc0963f32053e4bc451d24d87e3892d42d01021b61f093e98eb95c0352bb84b0 AS go-build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
